@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">นาฬิกา</string>
+    <string name="app_launcher_name">Rosenweg นาฬิกา</string>
     <string name="time_zone">เขตเวลา</string>
     <string name="vibrate">สั่น</string>
     <string name="no_days_selected">ไม่ได้เลือกวัน</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">ساعت زنگی</string>
+    <string name="app_launcher_name">Rosenweg ساعت زنگی</string>
     <string name="time_zone">منطقه‌ی زمانی</string>
     <string name="vibrate">لرزیدن</string>
     <string name="no_days_selected">روزی انتخاب نشد</string>
