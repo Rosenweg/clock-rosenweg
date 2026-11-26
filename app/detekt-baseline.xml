@@ -5,6 +5,7 @@
     <ID>ComplexCondition:ImportHelper.kt$ImportHelper$alarm.timeInMinutes == existingAlarm.timeInMinutes &amp;&amp; alarm.days == existingAlarm.days &amp;&amp; alarm.vibrate == existingAlarm.vibrate &amp;&amp; alarm.soundTitle == existingAlarm.soundTitle &amp;&amp; alarm.soundUri == existingAlarm.soundUri &amp;&amp; alarm.label == existingAlarm.label &amp;&amp; alarm.oneShot == existingAlarm.oneShot</ID>
     <ID>ComplexCondition:ImportHelper.kt$ImportHelper$timer.seconds == existingTimer.seconds &amp;&amp; timer.vibrate == existingTimer.vibrate &amp;&amp; timer.soundUri == existingTimer.soundUri &amp;&amp; timer.soundTitle == existingTimer.soundTitle &amp;&amp; timer.label == existingTimer.label &amp;&amp; timer.createdAt == existingTimer.createdAt</ID>
     <ID>ComplexCondition:IntentHandlerActivity.kt$IntentHandlerActivity$existingTimer != null &amp;&amp; skipUi &amp;&amp; (existingTimer.state is TimerState.Idle || (existingTimer.state is TimerState.Finished &amp;&amp; !existingTimer.oneShot))</ID>
+    <ID>CyclomaticComplexMethod:AnlageEinstellungen.kt$AnlageEinstellungen$private fun senden(ctx: Context, prefs: SharedPreferences)</ID>
     <ID>CyclomaticComplexMethod:IntentHandlerActivity.kt$IntentHandlerActivity$private fun Intent.dismissAlarm()</ID>
     <ID>CyclomaticComplexMethod:IntentHandlerActivity.kt$IntentHandlerActivity$private fun Intent.setNewAlarm()</ID>
     <ID>EmptyFunctionBlock:AlarmsAdapter.kt$AlarmsAdapter${}</ID>
@@ -18,6 +19,7 @@
     <ID>ForbiddenComment:AlarmController.kt$AlarmController$// TODO: This is a bit of a hack. Skipped alarms should be tracked properly.</ID>
     <ID>ForbiddenComment:AlarmController.kt$AlarmController$// TODO: This works but it is very rudimentary. Snoozed alarms are not being tracked.</ID>
     <ID>ForbiddenComment:AlarmsAdapter.kt$AlarmsAdapter$// TODO: This does not respect config.firstDayOfWeek</ID>
+    <ID>LoopWithTooManyJumpStatements:AnlageEinstellungen.kt$AnlageEinstellungen$for</ID>
     <ID>MagicNumber:ClockFragment.kt$ClockFragment$24</ID>
     <ID>MagicNumber:ClockFragment.kt$ClockFragment$3600</ID>
     <ID>MagicNumber:ClockFragment.kt$ClockFragment$60</ID>
@@ -58,6 +60,7 @@
     <ID>MagicNumber:TimerAdapter.kt$TimerAdapter$0.7f</ID>
     <ID>MagicNumber:WidgetAnalogueConfigureActivity.kt$WidgetAnalogueConfigureActivity$100</ID>
     <ID>MagicNumber:WidgetDigitalConfigureActivity.kt$WidgetDigitalConfigureActivity$100</ID>
+    <ID>MaxLineLength:AnlageEinstellungen.kt$AnlageEinstellungen.Empfaenger$/** Anmeldung am geteilten Telefon (Nachricht der Geraete-App): Einstellungen der Person sofort, Widgets neu zeichnen. */</ID>
     <ID>MaxLineLength:DBHelper.kt$DBHelper$"$COL_IS_ENABLED INTEGER, $COL_VIBRATE INTEGER, $COL_SOUND_TITLE TEXT, $COL_SOUND_URI TEXT, $COL_LABEL TEXT, $COL_ONE_SHOT INTEGER)"</ID>
     <ID>MaxLineLength:DBHelper.kt$DBHelper$"CREATE TABLE IF NOT EXISTS $ALARMS_TABLE_NAME ($COL_ID INTEGER PRIMARY KEY AUTOINCREMENT, $COL_TIME_IN_MINUTES INTEGER, $COL_DAYS INTEGER, "</ID>
     <ID>MaxLineLength:EditTimeZoneDialog.kt$EditTimeZoneDialog$.</ID>
@@ -82,6 +85,7 @@
     <ID>SwallowedException:IntentHandlerActivity.kt$IntentHandlerActivity$e: Exception</ID>
     <ID>TooGenericExceptionCaught:AlarmController.kt$AlarmController$e: Exception</ID>
     <ID>TooGenericExceptionCaught:AlarmService.kt$AlarmService$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:AnlageEinstellungen.kt$AnlageEinstellungen$e: Exception</ID>
     <ID>TooGenericExceptionCaught:App.kt$App$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Context.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Converters.kt$Converters$e: Exception</ID>
