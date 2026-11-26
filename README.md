@@ -7,6 +7,7 @@
 
 - [Überblick](#überblick)
 - [Plattformen](#plattformen)
+- [Anmeldung](#anmeldung)
 - [Rechte und Gruppen](#rechte-und-gruppen)
 - [Bedienung](#bedienung)
 - [Geteilte Rosenweg-Telefone](#geteilte-rosenweg-telefone)
@@ -41,6 +42,10 @@ Was die App kann:
 
 Nicht im Play Store und nicht auf F-Droid.
 
+## Anmeldung
+
+Die Uhr hat keinen Anmeldeschirm. Auf geteilten Telefonen gelten die Einstellungen der Person, die am Telefon angemeldet ist (Anmeldung von Rosenweg Gerät).
+
 ## Rechte und Gruppen
 
 Die App hat keine eigenen Rollen. Wer sie auf den geteilten Telefonen bekommt, legt der App-Katalog der Telefonanlage fest.
@@ -49,7 +54,7 @@ Die App hat keine eigenen Rollen. Wer sie auf den geteilten Telefonen bekommt, l
 |---|---|
 | Technik | legt die App im Katalog auf /smartphones an, wählt die Gruppen, schaltet sie aktiv; kann Apps auf den geteilten Telefonen ausblenden |
 | Angemeldete Person in einer der Gruppen des Katalog-Eintrags (leer = alle) | sieht die App auf dem geteilten Telefon; Einstellungen gehören ihr |
-| Alle anderen | auf dem eigenen Handy: APK von /apps, ohne Anmeldung |
+| Alle | auf dem eigenen Handy: APK von /apps |
 
 ## Bedienung
 
@@ -71,7 +76,7 @@ Auf den geteilten Telefonen (mit Rosenweg Gerät, Anmeldung per Karte am Sperrbi
 | Einstellungen pro Person | Nach dem Anmelden holt die App die Einstellungen der Person von der Telefonanlage; ist die Fassung dort neuer, gilt sie, sonst geht die hiesige hoch. Jede Änderung geht kurz danach hoch. Gerätebezogenes (Pfade, Zähler, Hinweise, PIN) bleibt auf dem Gerät. |
 | Widgets | nach dem Übernehmen der Einstellungen von der Anlage werden die Widgets neu gezeichnet |
 | Updates | Rosenweg Gerät installiert die App aus dem App-Katalog und hält sie aktuell. |
-| Ohne Rosenweg Gerät | alles bleibt wie gewohnt auf dem Handy. |
+| Ohne Rosenweg Gerät | die Einstellungen bleiben auf dem Handy. |
 
 Voraussetzung: die Rosenweg-Signatur. Rosenweg Gerät beantwortet Anfragen nur von Apps mit seiner Signatur (`ch.rosenweg4303.permission.ANLAGE`).
 
