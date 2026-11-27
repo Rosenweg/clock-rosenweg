@@ -22,6 +22,7 @@ import org.fossify.clock.helpers.PICK_AUDIO_FILE_INTENT_ID
 import org.fossify.clock.helpers.getCurrentDayMinutes
 import org.fossify.clock.helpers.updateNonRecurringAlarmDay
 import org.fossify.clock.models.Alarm
+import org.fossify.clock.rosenweg.UhrAbgleich
 import org.fossify.commons.dialogs.ConfirmationDialog
 import org.fossify.commons.dialogs.SelectAlarmSoundDialog
 import org.fossify.commons.extensions.addBit
@@ -112,6 +113,11 @@ class EditAlarmDialog(
 
             editAlarmVibrateIcon.setColorFilter(textColor)
             editAlarmVibrate.isChecked = alarm.vibrate
+            // Rosenweg: "Nur auf diesem Geraet" - nicht mit den anderen Geraeten abgleichen (eigenes Handy)
+            editAlarmNurHierHolder.beVisibleIf(UhrAbgleich.nurHierMoeglich(activity))
+            editAlarmNurHier.isChecked = alarm.id != 0 && alarm.id in UhrAbgleich.nurHier(activity)
+            editAlarmNurHierHolder.setOnClickListener { editAlarmNurHier.toggle() }
+
             editAlarmVibrateHolder.setOnClickListener {
                 editAlarmVibrate.toggle()
                 alarm.vibrate = editAlarmVibrate.isChecked
@@ -195,6 +201,9 @@ class EditAlarmDialog(
                                     }
                                 }
 
+                                if (UhrAbgleich.nurHierMoeglich(activity)) {
+                                    UhrAbgleich.nurHierSetzen(activity, alarmId, binding.editAlarmNurHier.isChecked)
+                                }
                                 activity.config.alarmLastConfig = alarm
                                 callback(alarmId)
                                 alertDialog.dismiss()

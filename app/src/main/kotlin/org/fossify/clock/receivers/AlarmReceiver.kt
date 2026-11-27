@@ -8,6 +8,8 @@ import org.fossify.clock.extensions.goAsync
 import org.fossify.clock.extensions.hideNotification
 import org.fossify.clock.helpers.ALARM_ID
 import org.fossify.clock.helpers.UPCOMING_ALARM_NOTIFICATION_ID
+import org.fossify.clock.rosenweg.AbgleichWeg
+import org.fossify.clock.rosenweg.UhrAbgleich
 
 /**
  * Receiver responsible for sounding alarms. It is also responsible for hiding the
@@ -21,6 +23,12 @@ class AlarmReceiver : BroadcastReceiver() {
 
         cancelUpcomingAlarmNotification(context)
         goAsync {
+            // Rosenweg: geteiltes Telefon ohne angemeldete Person - kein fremder Wecker klingelt,
+            // die Daten der letzten Person werden entfernt (UhrAbgleich.personWeg)
+            if (AbgleichWeg.geteilt(context) && AbgleichWeg.geteiltAngemeldet(context) == false) {
+                UhrAbgleich.personWeg(context)
+                return@goAsync
+            }
             context.alarmController.onAlarmTriggered(id)
         }
     }

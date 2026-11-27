@@ -97,6 +97,12 @@ class MainActivity : SimpleActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Rosenweg (Stefan 27.11.2026): die Uhr gleicht Wecker, Weltuhren und Timer mit dem Rosenweg ab.
+        // Eigenes Handy: ohne Anmeldung der gemeinsame Anmeldeschirm (commons-rosenweg: Karte,
+        // Rosenweg-Konto oder QR-Code; "Zurueck" schliesst die App). Geteilte Telefone (Rosenweg
+        // Geraet): nie, dort gilt die Anmeldung am Sperrbildschirm.
+        if (ch.rosenweg4303.cloud.RosenwegAnmeldeSchirm.zeigenFallsNoetig(this)) return
+        org.fossify.clock.rosenweg.UhrAbgleich.beimOeffnen(this)
         setupTopAppBar(binding.mainAppbar, topBarColor = getProperBackgroundColor())
         val configTextColor = getProperTextColor()
         if (storedTextColor != configTextColor) {

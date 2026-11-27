@@ -16,9 +16,12 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Rosenweg: ACCESS_NETWORK_STATE NICHT entfernen (Fossify tat es) - WorkManager braucht es fuer
+         den Abgleich mit dem Rosenweg (Netz als Bedingung); ausdruecklich ersetzen, damit keine
+         Bibliothek es wieder entfernt -->
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE"
-        tools:node="remove" />
+        tools:node="replace" />
 
     <uses-permission
         android:name="android.permission.USE_FINGERPRINT"
@@ -509,5 +512,24 @@
                 <action android:name="ch.rosenweg4303.ANGEMELDET" />
             </intent-filter>
         </receiver>
+        <!-- Rosenweg: Wecker, Weltuhren, Timer der Person laden (angemeldet) bzw. entfernen
+             (abgemeldet) - rosenweg/UhrAbgleich.kt -->
+        <receiver
+            android:name=".rosenweg.UhrAbgleich$Empfaenger"
+            android:exported="true"
+            android:permission="ch.rosenweg4303.permission.ANLAGE">
+            <intent-filter>
+                <action android:name="ch.rosenweg4303.ANGEMELDET" />
+                <action android:name="ch.rosenweg4303.ABGEMELDET" />
+            </intent-filter>
+        </receiver>
+        <!-- Rosenweg: Anmeldung und Abgleich (Einstellungen) -->
+        <activity
+            android:name=".rosenweg.RosenwegKontoActivity"
+            android:configChanges="orientation"
+            android:exported="false"
+            android:label="@string/rw_konto"
+            android:parentActivityName=".activities.SettingsActivity"
+            android:theme="@style/RosenwegCloud.Anmelden" />
     </application>
 </manifest>

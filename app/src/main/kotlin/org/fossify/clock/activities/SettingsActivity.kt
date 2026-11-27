@@ -25,6 +25,7 @@ import org.fossify.clock.helpers.TAB_STOPWATCH
 import org.fossify.clock.helpers.TAB_TIMER
 import org.fossify.clock.helpers.TimerHelper
 import org.fossify.clock.models.AlarmTimerBackup
+import org.fossify.clock.rosenweg.RosenwegKontoActivity
 import org.fossify.commons.dialogs.RadioGroupDialog
 import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beGoneIf
@@ -79,6 +80,7 @@ class SettingsActivity : SimpleActivity() {
         super.onResume()
         setupTopAppBar(binding.settingsAppbar, NavigationIcon.Arrow)
 
+        setupRosenwegKonto()
         setupCustomizeColors()
         setupUseEnglish()
         setupLanguage()
@@ -97,6 +99,7 @@ class SettingsActivity : SimpleActivity() {
         updateTextColors(binding.settingsHolder)
 
         arrayOf(
+            binding.settingsRosenwegLabel,
             binding.settingsColorCustomizationSectionLabel,
             binding.settingsGeneralSettingsLabel,
             binding.settingsAlarmTabLabel,
@@ -104,6 +107,20 @@ class SettingsActivity : SimpleActivity() {
             binding.settingsMigratingLabel
         ).forEach {
             it.setTextColor(getProperPrimaryColor())
+        }
+    }
+
+    /**
+     * Rosenweg: tatsaechlicher Stand (wer angemeldet, wie, letzter Abgleich); oeffnet die Seite
+     * "Rosenweg-Konto und Abgleich" (nicht angemeldet: dort gleich der Anmeldeschirm).
+     */
+    private fun setupRosenwegKonto() {
+        ensureBackgroundThread {
+            val text = RosenwegKontoActivity.kurz(applicationContext)
+            runOnUiThread { binding.settingsRosenwegKonto.text = text }
+        }
+        binding.settingsRosenwegKontoHolder.setOnClickListener {
+            startActivity(Intent(this, RosenwegKontoActivity::class.java))
         }
     }
 
