@@ -32,13 +32,20 @@ import java.util.concurrent.TimeUnit
  * Blockiert (Netz): nicht im UI-Thread.
  */
 object AbgleichWeg {
-    private const val TAG = "UhrAbgleichWeg"
+    private val TAG = UhrAbgleich.TAG
     private val ANLAGE = Uri.parse("content://ch.rosenweg4303.telefon.anlage")
     private val JSON = "application/json; charset=utf-8".toMediaType()
     private val http = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        // ganze Anfrage inkl. DNS (connectTimeout deckt die Namensaufloesung nicht ab)
+        .callTimeout(45, TimeUnit.SECONDS)
         .build()
+
+    /** Anmeldung (commons cloud) mit Frist: deren HTTP hat kein Gesamt-Timeout. */
+    private val frist = java.util.concurrent.Executors.newCachedThreadPool()
+    private const val TOKEN_FRIST_S = 60L
 
     sealed class Antwort {
         /** [sitzung]: wechselt am geteilten Telefon mit jeder An-/Abmeldung (sonst null). */
@@ -62,8 +69,29 @@ object AbgleichWeg {
         null
     }
 
-    fun anfrage(c: Context, methode: String, pfad: String, koerper: String? = null): Antwort =
-        if (geteilt(c)) ueberGeraet(c, methode, pfad, koerper) else direkt(c, methode, pfad, koerper)
+    fun anfrage(c: Context, methode: String, pfad: String, koerper: String? = null): Antwort {
+        val start = System.currentTimeMillis()
+        val a = if (geteilt(c)) ueberGeraet(c, methode, pfad, koerper) else direkt(c, methode, pfad, koerper)
+        val wie = when (a) {
+            is Antwort.Ok -> "HTTP ${a.status}"
+            is Antwort.NichtAngemeldet -> "nicht angemeldet"
+            is Antwort.Fehler -> "Fehler: ${a.text}"
+        }
+        Log.i(TAG, "$methode ${pfad.substringBefore('?')} -> $wie (${System.currentTimeMillis() - start} ms)")
+        return a
+    }
+
+    private fun token(c: Context): String? {
+        val f = frist.submit(java.util.concurrent.Callable<String?> { RosenwegAnmeldung.zugangsToken(c) })
+        return try {
+            f.get(TOKEN_FRIST_S, TimeUnit.SECONDS)
+        } catch (e: java.util.concurrent.TimeoutException) {
+            f.cancel(true)
+            throw java.io.IOException("Anmeldung antwortet nicht ($TOKEN_FRIST_S s)")
+        } catch (e: java.util.concurrent.ExecutionException) {
+            throw e.cause ?: e
+        }
+    }
 
     private fun ueberGeraet(c: Context, methode: String, pfad: String, koerper: String?): Antwort {
         val b: Bundle = try {
@@ -85,8 +113,9 @@ object AbgleichWeg {
     private fun direkt(c: Context, methode: String, pfad: String, koerper: String?): Antwort {
         repeat(2) { versuch ->
             val token = try {
-                RosenwegAnmeldung.zugangsToken(c)
+                token(c)
             } catch (e: Exception) {
+                Log.w(TAG, "Anmeldung: ${e.javaClass.simpleName}: ${e.message}")
                 return Antwort.Fehler("Keine Verbindung zum Rosenweg")
             } ?: return Antwort.NichtAngemeldet
             val r = Request.Builder().url(KartenSitzung.API + pfad)
@@ -103,6 +132,7 @@ object AbgleichWeg {
                     return Antwort.Ok(a.code, a.body?.string().orEmpty(), null)
                 }
             } catch (e: java.io.IOException) {
+                Log.w(TAG, "$methode $pfad: ${e.javaClass.simpleName}: ${e.message}")
                 return Antwort.Fehler("Keine Verbindung zum Rosenweg")
             }
         }

@@ -53,7 +53,10 @@ import java.util.concurrent.TimeUnit
  * bleiben nie liegen.
  */
 object UhrAbgleich {
-    private const val TAG = "UhrAbgleich"
+    /** Ein Tag fuer alles am Abgleich (wie beim Kalender): adb logcat -s RosenwegUhr */
+    const val TAG = "RosenwegUhr"
+    /** Laenger darf niemand die Sperre halten, ohne dass es im Log steht (mit Stapel des Halters). */
+    private const val SPERRE_WARTEN_S = 90L
     private const val PREFS = "rosenweg_uhr_abgleich"
     private const val ARBEIT_JETZT = "rosenweg-uhr-abgleich"
     private const val ARBEIT_STUENDLICH = "rosenweg-uhr-abgleich-stuendlich"
@@ -62,7 +65,33 @@ object UhrAbgleich {
     const val ABGEMELDET = "ch.rosenweg4303.ABGEMELDET"
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
-    private val sperre = Any()
+    private val sperre = java.util.concurrent.locks.ReentrantLock()
+    @Volatile private var halter: Thread? = null
+    @Volatile private var halterSeit = 0L
+    @Volatile private var halterWas = ""
+
+    /**
+     * Unter der Sperre ausfuehren; nach [SPERRE_WARTEN_S] aufgeben (null) und ins Log schreiben, wer
+     * sie haelt und wo er steht - statt wie frueher mit synchronized endlos zu warten.
+     */
+    private fun <T> gesperrt(was: String, f: () -> T): T? {
+        if (!sperre.tryLock(SPERRE_WARTEN_S, TimeUnit.SECONDS)) {
+            val h = halter
+            val stapel = h?.stackTrace?.take(12)?.joinToString("\n  at ") ?: "?"
+            Log.e(TAG, "$was: Sperre seit ${(System.currentTimeMillis() - halterSeit) / 1000} s gehalten von " +
+                "${h?.name} ($halterWas):\n  at $stapel")
+            return null
+        }
+        halter = Thread.currentThread()
+        halterSeit = System.currentTimeMillis()
+        halterWas = was
+        try {
+            return f()
+        } finally {
+            halter = null
+            sperre.unlock()
+        }
+    }
     private val hand = Handler(Looper.getMainLooper())
 
     /** Der Abgleich schreibt gerade selbst (Haken in DBHelper/TimerHelper/Config ignorieren). */
@@ -124,7 +153,9 @@ object UhrAbgleich {
         val netz = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
         val wm = WorkManager.getInstance(c)
         wm.enqueueUniqueWork(
-            ARBEIT_JETZT, ExistingWorkPolicy.REPLACE,
+            // Nicht REPLACE: das brach einen laufenden Abgleich ab (WorkerStoppedException), dessen Faden
+            // aber weiterlief und die Sperre hielt. Danach anhaengen genuegt: er erkennt dann neu.
+            ARBEIT_JETZT, ExistingWorkPolicy.APPEND_OR_REPLACE,
             OneTimeWorkRequestBuilder<Arbeit>().setConstraints(netz).build()
         )
         wm.enqueueUniquePeriodicWork(
@@ -149,12 +180,15 @@ object UhrAbgleich {
 
     private fun erkennenJetzt(c: Context) {
         if (!aktiv(c)) return
-        synchronized(sperre) {
+        gesperrt("erkennen") {
             val g = laden(c)
             // Vor dem ersten Abgleich nichts erkennen: dort entscheidet sich, was ab Werk ist
-            if (g.stand.neu) return
+            if (g.stand.neu) return@gesperrt
             val neu = Abgleicher(UhrAblage(c)).erkennen(g.stand)
-            if (neu != g.stand) speichern(c, g.copy(stand = neu))
+            if (neu != g.stand) {
+                speichern(c, g.copy(stand = neu))
+                Log.i(TAG, "erkannt: ${neu.offene().size} Aenderung(en) offen")
+            }
         }
     }
 
@@ -167,13 +201,26 @@ object UhrAbgleich {
             personWeg(c)
             return Ergebnis.NichtAngemeldet
         }
-        if (!geteilt && !RosenwegAnmeldung.angemeldet(c)) return Ergebnis.NichtAngemeldet
+        if (!geteilt && !RosenwegAnmeldung.angemeldet(c)) {
+            Log.i(TAG, "Abgleich: nicht angemeldet")
+            return Ergebnis.NichtAngemeldet
+        }
+        val start = System.currentTimeMillis()
+        val weg = if (geteilt) "geteiltes Telefon, ueber Rosenweg Geraet" else "eigenes Handy, direkt"
+        Log.i(TAG, "Abgleich Start ($weg)")
         val e = try {
-            synchronized(sperre) { durchgang(c, geteilt) }
+            gesperrt("abgleichen") { durchgang(c, geteilt) }
+                ?: Ergebnis.Fehler("Abgleich blockiert (siehe Log)", nochmal = true)
         } catch (e: Exception) {
-            Log.w(TAG, "Abgleich: ${e.javaClass.simpleName}: ${e.message}")
+            Log.e(TAG, "Abgleich: ${e.javaClass.simpleName}: ${e.message}", e)
             Ergebnis.Fehler("Unerwartete Antwort", nochmal = true)
         }
+        val wie = when (e) {
+            is Ergebnis.Ok -> "ok"
+            is Ergebnis.NichtAngemeldet -> "nicht angemeldet"
+            is Ergebnis.Fehler -> "Fehler: ${e.text}"
+        }
+        Log.i(TAG, "Abgleich Ende nach ${System.currentTimeMillis() - start} ms: $wie")
         status(c, e)
         return e
     }
@@ -205,6 +252,8 @@ object UhrAbgleich {
             if (g.stand.neu && geteilt) {
                 lokalGeaendert = mitUebernahme { ablage.herrenloseEntfernen() } || lokalGeaendert
             }
+            Log.i(TAG, "geholt: Version ${a.version}, ${a.eintraege.size} Eintrag/Eintraege" +
+                " (${a.eintraege.count { it.geloescht }} Grabsteine)")
             if (g.stand.neu) lokalGeaendert = mitUebernahme { ab.werkseitigeEntfernen(a) } || lokalGeaendert
             val (s, geaendert) = mitUebernahme { ab.uebernehmen(g.stand.copy(person = person ?: g.stand.person), a) }
             g = g.copy(stand = s, name = a.person?.name ?: g.name)
@@ -219,10 +268,14 @@ object UhrAbgleich {
         if (hoch.isNotEmpty() || !holenZuerst) {
             val gesendet = stand.offene().associateBy { it.schluessel }
             val koerper = json.encodeToString(Hoch(stand.version, KartenSitzung.geraetName(), hoch))
+            Log.i(TAG, "hoch: ${hoch.size} Eintrag/Eintraege (${hoch.count { it.geloescht }} Grabsteine)," +
+                " seit ${stand.version}")
             val a = senden(c, koerper) ?: run {
                 speichern(c, g.copy(stand = stand))   // Erkanntes behalten, spaeter nochmals
                 return letzterFehler
             }
+            Log.i(TAG, "Antwort: Version ${a.version}, ${a.eintraege.size} Eintrag/Eintraege herunter" +
+                " (${a.eintraege.count { it.geloescht }} Grabsteine)")
             val vorher = stand.copy(person = a.person?.id ?: stand.person)
             val (s, geaendert) = mitUebernahme { ab.uebernehmen(vorher, a, gesendet) }
             stand = s
@@ -231,6 +284,8 @@ object UhrAbgleich {
         }
         speichern(c, g.copy(stand = stand))
         if (lokalGeaendert) anzeigeAuffrischen(c)
+        Log.i(TAG, "Stand: Version ${stand.version}, ${stand.merker.values.count { !it.geloescht }} Eintraege, " +
+            "${stand.offene().size} offen, lokal geaendert: $lokalGeaendert")
         return Ergebnis.Ok
     }
 
@@ -280,14 +335,16 @@ object UhrAbgleich {
     /** Geteiltes Telefon, niemand (mehr) angemeldet: alles der Person entfernen. */
     fun personWeg(ctx: Context) {
         val c = ctx.applicationContext
-        synchronized(sperre) {
+        val entfernt = gesperrt("abmelden") {
             val g = laden(c)
             val ablage = UhrAblage(c)
-            if (g.stand.merker.isEmpty() && g.stand.person == null && ablage.lokale().isEmpty()) return
+            if (g.stand.merker.isEmpty() && g.stand.person == null && ablage.lokale().isEmpty()) return@gesperrt false
             mitUebernahme { ablage.allesLoeschen() }
             prefs(c).edit().clear().commit()
             Log.i(TAG, "abgemeldet: Wecker, Weltuhren und Timer der Person entfernt")
+            true
         }
+        if (entfernt != true) return
         WorkManager.getInstance(c).cancelUniqueWork(ARBEIT_JETZT)
         anzeigeAuffrischen(c)
     }
@@ -295,7 +352,7 @@ object UhrAbgleich {
     /** Eigenes Handy, abgemeldet: nicht mehr abgleichen (die Daten bleiben auf dem Handy). */
     fun vergessen(ctx: Context) {
         val c = ctx.applicationContext
-        synchronized(sperre) { prefs(c).edit().clear().commit() }
+        gesperrt("vergessen") { prefs(c).edit().clear().commit() }
         WorkManager.getInstance(c).cancelUniqueWork(ARBEIT_JETZT)
         WorkManager.getInstance(c).cancelUniqueWork(ARBEIT_STUENDLICH)
     }
@@ -380,7 +437,16 @@ object UhrAbgleich {
     // ─── WorkManager und Broadcasts ─────────────────────────────────────────
 
     class Arbeit(c: Context, p: WorkerParameters) : Worker(c, p) {
-        override fun doWork(): Result = when (val e = abgleichen(applicationContext)) {
+        override fun doWork(): Result {
+            Log.i(TAG, "Arbeit beginnt (Versuch $runAttemptCount)")
+            return ergebnis(abgleichen(applicationContext))
+        }
+
+        override fun onStopped() {
+            Log.i(TAG, "Arbeit von WorkManager gestoppt (laeuft weiter bis zum Ende des Durchgangs)")
+        }
+
+        private fun ergebnis(e: Ergebnis): Result = when (e) {
             is Ergebnis.Ok, is Ergebnis.NichtAngemeldet -> Result.success()
             is Ergebnis.Fehler -> if (e.nochmal && runAttemptCount < 5) Result.retry() else Result.success()
         }
