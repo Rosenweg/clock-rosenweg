@@ -19,11 +19,13 @@ class AbgleicherTest {
         val wecker = linkedMapOf<String, JsonObject>()
         val welt = linkedMapOf<String, JsonObject>()
         var naechste = 1
-        var werkseitig = false
+        /** Eintraege ab Werk (lokale Wecker-Ids) wie in UhrAblage: nie in lokale() */
+        val werk = mutableSetOf<String>()
         /** "Nur auf diesem Geraet" wie in UhrAblage: solche Wecker sieht der Abgleich nicht */
         val nurHier = mutableSetOf<String>()
         override val arten = listOf("wecker", "weltuhr")
-        override fun lokale() = wecker.filterKeys { it !in nurHier }.map { (k, v) -> Lokal("wecker", k, v) } +
+        override fun lokale() = wecker.filterKeys { it !in nurHier && it !in werk }
+            .map { (k, v) -> Lokal("wecker", k, v) } +
             welt.map { (k, v) -> Lokal("weltuhr", k, v, festeId = "z$k") }
 
         override fun anlegen(art: String, id: String, daten: JsonObject): String? = when (art) {
@@ -42,7 +44,7 @@ class AbgleicherTest {
             (if (art == "wecker") wecker else welt).remove(lokalId)
         }
 
-        override fun nurWerkseitig(art: String, lokale: List<Lokal>) = werkseitig
+        override fun werkseitige(art: String) = if (art == "wecker") werk.filter { it in wecker } else emptyList()
     }
 
     private fun an(version: Long, vararg e: Eintrag) = Antwort(version, eintraege = e.toList())
@@ -158,18 +160,41 @@ class AbgleicherTest {
     }
 
     @Test
-    fun erstAbgleichEntferntWerkseitigesNurWennServerDatenHat() {
-        val s = Speicher().apply { werkseitig = true }
+    fun werkseitigeGehenNieHochUndWeichenDenDatenDesKontos() {
+        val s = Speicher()
         val a = abgleicher(s)
+        // Zwei Beispiel-Wecker ab Werk und ein eigener
         s.wecker["1"] = w(420, an = false)
-        // Server leer: Beispiel-Wecker bleiben und gehen hoch
+        s.wecker["2"] = w(540, an = false)
+        s.werk.addAll(listOf("1", "2"))
+        s.wecker["3"] = w(600)
+        s.naechste = 4
+        // Konto leer: Werks-Wecker bleiben lokal, gehen aber nicht hoch; der eigene schon
         assertFalse(a.werkseitigeEntfernen(Antwort(0)))
-        assertEquals(1, a.hochzuladen(a.erkennen(Stand())).size)
-        // Server hat Wecker der Person: Beispiel-Wecker weg, die der Person kommen
+        assertEquals(listOf(600), a.hochzuladen(a.erkennen(Stand())).map { it.daten!!["zeit"]!!.jsonPrimitive.int })
+        assertEquals(3, s.wecker.size)
+        // Konto hat Wecker: Werks-Wecker weg, die des Kontos kommen, der eigene bleibt
         val oben = an(1, Eintrag("wecker", "x", 500, daten = w(300), version = 1))
         assertTrue(a.werkseitigeEntfernen(oben))
         a.uebernehmen(Stand(), oben)
-        assertEquals(listOf(300), s.wecker.values.map { it["zeit"]!!.jsonPrimitive.int })
+        assertEquals(listOf(600, 300), s.wecker.values.map { it["zeit"]!!.jsonPrimitive.int })
+    }
+
+    @Test
+    fun hochgeladeneWerkseintraegeWerdenZuGrabsteinen() {
+        // Vor 1.7.2 gingen die Beispiel-Wecker hoch; jetzt als ab Werk erkannt -> Grabstein, lokal bleibt er
+        val s = Speicher()
+        val a = abgleicher(s)
+        s.wecker["1"] = w(420, an = false)
+        var st = a.erkennen(Stand())
+        val e = Eintrag("wecker", "id1", 1000, daten = w(420, an = false), version = 1)
+        st = a.uebernehmen(st, an(1, e), st.merker).first
+        uhr = 2000
+        s.werk.add("1")
+        val hoch = a.hochzuladen(a.erkennen(st)).single()
+        assertTrue(hoch.geloescht)
+        assertEquals("id1", hoch.id)
+        assertTrue("1" in s.wecker)
     }
 
     @Test

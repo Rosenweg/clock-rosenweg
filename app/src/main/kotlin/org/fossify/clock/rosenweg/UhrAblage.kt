@@ -75,8 +75,10 @@ class UhrAblage(private val c: Context) : Ablage {
         val l = ArrayList<Lokal>()
         // "Nur auf diesem Geraet" (Wecker-Dialog): nicht abgleichen. Stand ein solcher Wecker schon
         // beim Server, sieht der Abgleicher ihn hier nicht mehr und schickt einen Grabstein.
+        // Eintraege ab Werk (Werk.kt) gehen nie hoch, solange die Person sie nicht aendert.
+        uebernehmenAlteFassung()
         val nurHier = UhrAbgleich.nurHier(c)
-        c.dbHelper.getAlarms().filter { it.id !in nurHier }
+        c.dbHelper.getAlarms().filter { it.id !in nurHier && !abWerk(WECKER, it.id, weckerDaten(it)) }
             .forEach { l.add(Lokal(WECKER, it.id.toString(), weckerDaten(it))) }
         val titel = eigeneTitel()
         val zonen = getAllTimeZones().associateBy { it.id }
@@ -89,10 +91,38 @@ class UhrAblage(private val c: Context) : Ablage {
             }
             l.add(Lokal(WELTUHR, id.toString(), d, festeId = "z$id"))
         }
-        c.timerDb.getTimers().filter { !it.oneShot && it.id != null }.forEach {
+        c.timerDb.getTimers().filter { !it.oneShot && it.id != null && !abWerk(TIMER, it.id!!, timerDaten(it)) }
+            .forEach {
             l.add(Lokal(TIMER, it.id.toString(), timerDaten(it)))
         }
         return l
+    }
+
+    /** Noch so, wie ab Werk angelegt? Geaendert: gehoert ab jetzt der Person (Werk vergisst ihn). */
+    private fun abWerk(art: String, id: Int, daten: JsonObject): Boolean {
+        if (id !in Werk.ids(c, art)) return false
+        val jetzt = Abgleicher.pruefsumme(daten)
+        val damals = Werk.summe(c, art, id) ?: jetzt.also { Werk.summeMerken(c, art, id, it) }
+        if (damals == jetzt) return true
+        Werk.vergessen(c, art, id)
+        return false
+    }
+
+    private fun weckerWieAbWerk(a: Alarm) = listOf(a.isEnabled, a.vibrate, a.oneShot, a.label.isNotEmpty()).none { it }
+
+    private fun timerWieAbWerk(t: Timer) =
+        t.seconds == WERK_TIMER_SEKUNDEN && listOf(t.oneShot, t.vibrate, t.label.isNotEmpty()).none { it }
+
+    /** Fassungen vor 1.7.2 merkten die Werkseintraege nicht: einmalig nachholen (siehe Werk). */
+    private fun uebernehmenAlteFassung() {
+        if (Werk.alteFassungErledigt(c)) return
+        c.dbHelper.getAlarms().filter { it.id == 1 || it.id == 2 }.forEach {
+            val zeit = if (it.id == 1) WERK_WECKER_WERKTAGS else WERK_WECKER_WOCHENENDE
+            val tage = if (it.id == 1) WERKTAGE else WOCHENENDE
+            if (weckerWieAbWerk(it) && it.timeInMinutes == zeit && it.days == tage) Werk.merken(c, WECKER, it.id)
+        }
+        c.timerDb.getTimer(1)?.let { if (timerWieAbWerk(it)) Werk.merken(c, TIMER, 1) }
+        Werk.alteFassungErledigtSetzen(c)
     }
 
     private fun ton(titel: String, uri: String) = buildJsonObject {
@@ -123,21 +153,11 @@ class UhrAblage(private val c: Context) : Ablage {
         teile.getOrNull(0)?.toIntOrNull()?.let { id -> id to (teile.getOrNull(1) ?: "") }
     }.toMap()
 
-    override fun nurWerkseitig(art: String, lokale: List<Lokal>): Boolean = when (art) {
-        WECKER -> {
-            val nurHier = UhrAbgleich.nurHier(c)
-            val alarme = c.dbHelper.getAlarms().filter { it.id !in nurHier }
-            alarme.size <= 2 && alarme.all {
-                !it.isEnabled && !it.vibrate && it.label.isEmpty() &&
-                    ((it.timeInMinutes == WERK_WECKER_WERKTAGS && it.days == WERKTAGE) ||
-                        (it.timeInMinutes == WERK_WECKER_WOCHENENDE && it.days == WOCHENENDE))
-            }
-        }
-        TIMER -> {
-            val t = c.timerDb.getTimers().filter { !it.oneShot }
-            t.size == 1 && t[0].label.isEmpty() && t[0].seconds == WERK_TIMER_SEKUNDEN && t[0].state is TimerState.Idle
-        }
-        else -> false   // Weltuhren gibt es ab Werk keine
+    override fun werkseitige(art: String): List<String> = when (art) {
+        WECKER -> c.dbHelper.getAlarms().filter { abWerk(WECKER, it.id, weckerDaten(it)) }.map { it.id.toString() }
+        TIMER -> c.timerDb.getTimers().filter { t -> t.id?.let { abWerk(TIMER, it, timerDaten(t)) } == true }
+            .map { it.id.toString() }
+        else -> emptyList()   // Weltuhren gibt es ab Werk keine
     }
 
     // ─── schreiben ──────────────────────────────────────────────────────────

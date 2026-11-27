@@ -63,7 +63,7 @@ Seit 1.7.0 meldet sich die Uhr an, weil sie Daten mit dem Rosenweg abgleicht.
 
 - **Wann:** beim Öffnen, rund 2 s nach jeder Änderung und stündlich im Hintergrund (WorkManager, wartet auf Netz). Ohne Netz geht alles weiter; die Änderungen gehen hoch, sobald wieder Netz da ist.
 - **Konflikte:** Je Wecker, Weltuhr und Timer gilt die letzte Änderung. Gelöschtes bleibt als Grabstein stehen, damit es auf den anderen Geräten auch verschwindet.
-- **Erstes Gerät, weitere Geräte:** Hat die Person schon Wecker beim Rosenweg, verschwinden auf einem neuen Gerät die zwei Beispiel-Wecker ab Werk (7:00 werktags, 9:00 am Wochenende), statt dazuzukommen. Sonst kommt alles dazu, was schon auf dem Gerät ist.
+- **Einträge ab Werk:** Die zwei Beispiel-Wecker (7:00 werktags, 9:00 am Wochenende) und der 5-Minuten-Timer werden beim Anlegen markiert und gehen nie ins Konto. Hat das Konto beim ersten Abgleich schon Wecker bzw. Timer, verschwinden sie vom Gerät; sonst bleiben sie dort. Ändert man einen davon, gehört er einem und wird ab dann abgeglichen. Was Fassungen vor 1.7.2 schon hochgeladen hatten, entfernt der Abgleich aus dem Konto (Grabstein).
 - **Backend:** Rosenweg-API `GET/PUT /api/me/app-daten/ch.rosenweg4303.clock` (Website `api/routes/app-daten.js`). Nur die Person selbst sieht ihre Daten; eine Technik-Ansicht gibt es nicht.
 
 ## Rechte und Gruppen

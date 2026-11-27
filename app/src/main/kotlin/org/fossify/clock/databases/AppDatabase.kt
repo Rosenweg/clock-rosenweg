@@ -46,7 +46,8 @@ abstract class AppDatabase : RoomDatabase() {
         private fun insertDefaultTimer(context: Context) {
             Executors.newSingleThreadScheduledExecutor().execute {
                 val config = context.config
-                db!!.TimerDao().insertOrUpdateTimer(
+                // Rosenweg: Standard-Timer ab Werk merken - geht nie ins Konto (rosenweg/Werk.kt)
+                val id = db!!.TimerDao().insertOrUpdateTimer(
                     Timer(
                         id = null,
                         seconds = config.timerSeconds,
@@ -59,6 +60,7 @@ abstract class AppDatabase : RoomDatabase() {
                         channelId = config.timerChannelId,
                     )
                 )
+                org.fossify.clock.rosenweg.Werk.merken(context, org.fossify.clock.rosenweg.UhrAblage.TIMER, id.toInt())
             }
         }
 

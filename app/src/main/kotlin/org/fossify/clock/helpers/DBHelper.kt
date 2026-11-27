@@ -82,7 +82,11 @@ class DBHelper private constructor(
         return db.insert(ALARMS_TABLE_NAME, null, values).toInt().also {
             // Rosenweg: ohne Anmeldung gestellt (z.B. SET_ALARM aus einer anderen App) -> gehoert
             // niemandem, geht nicht ins Konto (UhrAbgleich.neuerWecker)
-            if (!abWerk) org.fossify.clock.rosenweg.UhrAbgleich.neuerWecker(context, it)
+            if (abWerk) {
+                org.fossify.clock.rosenweg.Werk.merken(context, org.fossify.clock.rosenweg.UhrAblage.WECKER, it)
+            } else {
+                org.fossify.clock.rosenweg.UhrAbgleich.neuerWecker(context, it)
+            }
             weckerGeaendert()
         }
     }

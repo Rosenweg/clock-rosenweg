@@ -91,8 +91,11 @@ interface Ablage {
     fun aendern(art: String, lokalId: String, daten: JsonObject): Boolean
     fun loeschen(art: String, lokalId: String)
 
-    /** Steht von dieser Art nur ab Werk Angelegtes da (z.B. die zwei Beispiel-Wecker)? */
-    fun nurWerkseitig(art: String, lokale: List<Lokal>): Boolean
+    /**
+     * Lokale Kennungen der Eintraege ab Werk (z.B. die zwei Beispiel-Wecker), die noch unveraendert
+     * sind. Sie stehen NICHT in [lokale] - sie gehen nie hoch.
+     */
+    fun werkseitige(art: String): List<String>
 }
 
 class Abgleicher(
@@ -151,17 +154,16 @@ class Abgleicher(
     }
 
     /**
-     * Erster Abgleich: von Arten, die der Server schon kennt, die Werkseinstellungen dieses Geraets
-     * nicht hochladen, sondern entfernen (sonst bekaeme die Person auf jedem neuen Geraet die zwei
-     * Beispiel-Wecker dazu). Danach erkennen wie immer.
+     * Erster Abgleich: Eintraege ab Werk gehen nie hoch ([Ablage.werkseitige]). Hat das Konto von
+     * dieser Art schon Daten, werden sie hier entfernt und die des Kontos uebernommen; ist es leer,
+     * bleiben sie auf dem Geraet.
      */
-    fun werkseitigeEntfernen(antwort: Antwort, lokale: List<Lokal> = ablage.lokale()): Boolean {
+    fun werkseitigeEntfernen(antwort: Antwort): Boolean {
         val oben = antwort.eintraege.filter { !it.geloescht }.map { it.art }.toSet()
         var entfernt = false
         for (art in oben) {
-            val von = lokale.filter { it.art == art }
-            if (von.isNotEmpty() && ablage.nurWerkseitig(art, von)) {
-                von.forEach { ablage.loeschen(art, it.lokalId) }
+            for (id in ablage.werkseitige(art)) {
+                ablage.loeschen(art, id)
                 entfernt = true
             }
         }
