@@ -82,13 +82,32 @@ object AbgleichWeg {
     }
 
     private fun token(c: Context): String? {
-        val f = frist.submit(java.util.concurrent.Callable<String?> { RosenwegAnmeldung.zugangsToken(c) })
+        val wie = if (RosenwegAnmeldung.mitKarte(c)) {
+            "Karten-Sitzung (${KartenSitzung.weg(c) ?: "mit Karte"})"
+        } else {
+            "Rosenweg-Konto"
+        }
+        val start = System.currentTimeMillis()
+        val fadenRef = java.util.concurrent.atomic.AtomicReference<Thread?>()
+        val f = frist.submit(java.util.concurrent.Callable<String?> {
+            fadenRef.set(Thread.currentThread())
+            RosenwegAnmeldung.zugangsToken(c)
+        })
         return try {
-            f.get(TOKEN_FRIST_S, TimeUnit.SECONDS)
+            f.get(TOKEN_FRIST_S, TimeUnit.SECONDS).also {
+                val ms = System.currentTimeMillis() - start
+                Log.i(TAG, "Token ($wie): ${if (it == null) "keins" else "da"} nach $ms ms")
+            }
         } catch (e: java.util.concurrent.TimeoutException) {
+            val faden = fadenRef.get()
+            // Wo steht der Faden? (Netz in KartenSitzung.erneuern, Sperre, Keystore ...)
+            val stapel = faden?.stackTrace?.take(25)?.joinToString("\n  at ") ?: "?"
+            Log.e(TAG, "Token ($wie) nach $TOKEN_FRIST_S s nicht da, Faden ${faden?.name} (${faden?.state}):" +
+                "\n  at $stapel")
             f.cancel(true)
             throw java.io.IOException("Anmeldung antwortet nicht ($TOKEN_FRIST_S s)")
         } catch (e: java.util.concurrent.ExecutionException) {
+            Log.w(TAG, "Token ($wie): ${e.cause?.javaClass?.simpleName}: ${e.cause?.message}")
             throw e.cause ?: e
         }
     }
@@ -124,6 +143,7 @@ object AbgleichWeg {
                 .build()
             try {
                 http.newCall(r).execute().use { a ->
+                    if (a.code == 401) Log.w(TAG, "$methode $pfad: 401 mit frischem Token (Versuch $versuch)")
                     if (a.code == 401 && versuch == 0) {
                         // Token im Speicher abgelaufen/widerrufen: einmal neu holen
                         RosenwegAnmeldung.zugangUngueltig()
