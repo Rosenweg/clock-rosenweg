@@ -8,6 +8,7 @@
 - [Überblick](#überblick)
 - [Plattformen](#plattformen)
 - [Anmeldung](#anmeldung)
+- [Abgleich mit dem Rosenweg](#abgleich-mit-dem-rosenweg)
 - [Rechte und Gruppen](#rechte-und-gruppen)
 - [Bedienung](#bedienung)
 - [Geteilte Rosenweg-Telefone](#geteilte-rosenweg-telefone)
@@ -29,6 +30,7 @@ Was die App kann:
 - **Wecker:** mehrere Wecker, wiederholend, mit eigenem Ton.
 - **Stoppuhr und Timer:** mit Runden bzw. mehreren Timern.
 - **Uhr-Widget:** auf der Standard-Startseite von Rosenweg Launcher.
+- **Auf allen Geräten gleich:** Wecker, Weltuhren und Timer gehören der Person und werden mit dem Rosenweg abgeglichen – auf dem eigenen Handy und an jedem geteilten Telefon, an dem sie sich anmeldet.
 - **Einstellungen pro Person:** auf geteilten Telefonen gehören sie der angemeldeten Person, auch die Widget-Farben.
 - **Rosenweg Updater:** hält auf dem eigenen Handy alle Rosenweg-Apps aktuell.
 
@@ -44,7 +46,25 @@ Nicht im Play Store und nicht auf F-Droid.
 
 ## Anmeldung
 
-Die Uhr hat keinen Anmeldeschirm. Auf geteilten Telefonen gelten die Einstellungen der Person, die am Telefon angemeldet ist (Anmeldung von Rosenweg Gerät).
+Seit 1.7.0 meldet sich die Uhr an, weil sie Daten mit dem Rosenweg abgleicht.
+
+- **Eigenes Handy:** Beim Öffnen kommt ohne Anmeldung der gemeinsame Anmeldeschirm der Rosenweg-Apps (commons-rosenweg `cloud`). Man hält die Rosenweg-Karte ans Handy, meldet sich mit dem Rosenweg-Konto an oder scannt einen QR-Code von rosenweg4303.ch/smartphones. „Zurück“ schliesst die App. Die Anmeldung gilt nur für die Uhr. Gestellte Wecker klingeln auch ohne Anmeldung.
+- **Geteilte Telefone:** Es gibt keinen eigenen Anmeldeschirm. Es gilt die Person, die am Sperrbildschirm angemeldet ist (Rosenweg Gerät).
+- **Stand:** Menü → Einstellungen → Rosenweg → „Rosenweg-Konto und Abgleich“. Die Seite zeigt, wer angemeldet ist und wie, und wann zuletzt abgeglichen wurde. Dort gibt es „Jetzt abgleichen“ und, auf dem eigenen Handy, „Abmelden“. Nach dem Abmelden bleiben die Wecker auf dem Handy, werden aber nicht mehr abgeglichen.
+
+## Abgleich mit dem Rosenweg
+
+| Was | abgeglichen |
+|---|---|
+| Wecker | Zeit, Wochentage, Bezeichnung, Ton, Vibration, an/aus. Gibt es den Ton auf dem anderen Gerät nicht, nimmt die Uhr den gleichnamigen Ton des Geräts, sonst den Standard-Weckton. |
+| Weltuhren | gewählte Städte und eigene Namen |
+| Timer | Dauer, Bezeichnung, Ton, Vibration. Ein laufender Timer läuft nur auf seinem Gerät. |
+| Stoppuhr, Einstellungen | nein. Die Einstellungen gehen auf geteilten Telefonen weiterhin über die Telefonanlage, siehe unten. |
+
+- **Wann:** beim Öffnen, rund 2 s nach jeder Änderung und stündlich im Hintergrund (WorkManager, wartet auf Netz). Ohne Netz geht alles weiter; die Änderungen gehen hoch, sobald wieder Netz da ist.
+- **Konflikte:** Je Wecker, Weltuhr und Timer gilt die letzte Änderung. Gelöschtes bleibt als Grabstein stehen, damit es auf den anderen Geräten auch verschwindet.
+- **Erstes Gerät, weitere Geräte:** Hat die Person schon Wecker beim Rosenweg, verschwinden auf einem neuen Gerät die zwei Beispiel-Wecker ab Werk (7:00 werktags, 9:00 am Wochenende), statt dazuzukommen. Sonst kommt alles dazu, was schon auf dem Gerät ist.
+- **Backend:** Rosenweg-API `GET/PUT /api/me/app-daten/ch.rosenweg4303.clock` (Website `api/routes/app-daten.js`). Nur die Person selbst sieht ihre Daten; eine Technik-Ansicht gibt es nicht.
 
 ## Rechte und Gruppen
 
@@ -73,6 +93,7 @@ Auf den geteilten Telefonen (mit Rosenweg Gerät, Anmeldung per Karte am Sperrbi
 
 | Thema | Verhalten |
 |---|---|
+| Wecker, Weltuhren, Timer | Beim Anmelden lädt die Uhr die Daten der Person und stellt ihre Wecker. Beim Abmelden und nach einem Neustart (er beendet jede Sitzung) entfernt sie alles wieder. Will ein Wecker klingeln, obwohl niemand angemeldet ist, klingelt er nicht, und die Daten werden entfernt. Hat die Person gewechselt, ohne dass die Uhr es mitbekam, räumt der nächste Abgleich zuerst auf. Fremde Wecker bleiben so nie liegen. Der Weg führt über Rosenweg Gerät (`portal_anfrage`) und die Telefonanlage; dort ist der Pfad freigegeben (`PORTAL_PFADE_STANDARD`). |
 | Einstellungen pro Person | Nach dem Anmelden holt die App die Einstellungen der Person von der Telefonanlage; ist die Fassung dort neuer, gilt sie, sonst geht die hiesige hoch. Jede Änderung geht kurz danach hoch. Gerätebezogenes (Pfade, Zähler, Hinweise, PIN) bleibt auf dem Gerät. |
 | Widgets | nach dem Übernehmen der Einstellungen von der Anlage werden die Widgets neu gezeichnet |
 | Updates | Rosenweg Gerät installiert die App aus dem App-Katalog und hält sie aktuell. |
@@ -98,17 +119,24 @@ Fossify-Code mit wenigen, markierten Rosenweg-Stellen (Kommentar „Rosenweg“)
 | Teil | Inhalt |
 |---|---|
 | `helpers/AnlageEinstellungen.kt` | Einstellungen pro Person über Rosenweg Gerät (`content://ch.rosenweg4303.telefon.anlage`, Server `/api/telefon/einstellungen`) |
-| `activities/MainActivity.kt` | ruft beim Start den Abgleich auf |
+| `activities/MainActivity.kt` | Anmeldeschirm (eigenes Handy), ruft beim Start beide Abgleiche auf |
+| `rosenweg/Abgleicher.kt` | Abgleich ohne Android: Änderungen erkennen, Server-Stand übernehmen, letzte Änderung gewinnt (Unit-Test `app/src/test/…/AbgleicherTest.kt`) |
+| `rosenweg/UhrAblage.kt` | Wecker, Weltuhren und Timer in der Form des Backends; Ton auf diesem Gerät |
+| `rosenweg/UhrAbgleich.kt` | Ablauf, WorkManager, An-/Abmelden am geteilten Telefon |
+| `rosenweg/AbgleichWeg.kt` | Weg zur API: über Rosenweg Gerät oder direkt mit der Anmeldung der App |
+| `rosenweg/RosenwegKontoActivity.kt` | Seite „Rosenweg-Konto und Abgleich“ in den Einstellungen |
+| `helpers/DBHelper.kt`, `helpers/TimerHelper.kt`, `helpers/Config.kt` | melden Änderungen an den Abgleich |
 | `app/src/main/AndroidManifest.xml` | Berechtigung `ch.rosenweg4303.permission.ANLAGE`, Empfänger für An-/Abmelden (nur Rosenweg-Signatur) |
 | `ch.rosenweg4303:updater` | Rosenweg Updater (aus commons-rosenweg) |
-| Commons `7.1.3-rosenweg.1` | Rosenweg-Fork der Fossify Commons, aus `mavenLocal()` (`gradle/libs.versions.toml`, `settings.gradle.kts`) |
+| `ch.rosenweg4303:cloud` 0.13.0 | Anmeldeschirm (Karte, Rosenweg-Konto, QR), `RosenwegAnmeldung` (aus commons-rosenweg) |
+| Commons `7.1.3-rosenweg.5` | Rosenweg-Fork der Fossify Commons, aus GitHub Packages (`gradle/libs.versions.toml`, `settings.gradle.kts`) |
 | `assets/logo/` | Logo aus dem Baukasten von rosenweg-basis: Turm, Weg und Rose mit dem Zeichen der App; dazu monochromes Designsymbol (Android 13+). Neu erzeugen: `sh assets/logo/erzeugen.sh` |
 | `app/src/main/res/`: `values/rosenweg_icon.xml`, `mipmap-anydpi-v26/ic_launcher.xml` | ein einziges Rosenweg-Symbol statt der wählbaren Fossify-Symbolfarben |
 | `fastlane/` | Store-Texte und Bilder des Originals (nicht verwendet) |
 
 ## Bauen
 
-Die App baut gegen den Rosenweg-Fork der Fossify Commons und die Rosenweg-Module `cloud`/`updater` (`ch.rosenweg4303:*`). Diese kommen aus dem lokalen Maven-Repository, also zuerst [commons-rosenweg](https://github.com/Rosenweg/commons-rosenweg) veröffentlichen:
+Die App baut gegen den Rosenweg-Fork der Fossify Commons und die Rosenweg-Module `cloud`/`updater` (`ch.rosenweg4303:*`). Sie kommen aus GitHub Packages von commons-rosenweg. Dafür braucht es `gpr.user`/`gpr.key` in `~/.gradle/gradle.properties` oder `GITHUB_ACTOR`/`GPR_TOKEN` in der Umgebung. Ohne diese Angaben gilt das lokale Maven-Repository; dann zuerst [commons-rosenweg](https://github.com/Rosenweg/commons-rosenweg) veröffentlichen:
 
 ```bash
 # in commons-rosenweg (Zweig main)

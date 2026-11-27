@@ -79,14 +79,17 @@ class DBHelper private constructor(
 
     fun insertAlarm(alarm: Alarm, db: SQLiteDatabase = mDb): Int {
         val values = fillAlarmContentValues(alarm)
-        return db.insert(ALARMS_TABLE_NAME, null, values).toInt()
+        return db.insert(ALARMS_TABLE_NAME, null, values).toInt().also { weckerGeaendert() }
     }
+
+    // Rosenweg: Wecker gehoeren der Person und werden abgeglichen (rosenweg/UhrAbgleich.kt)
+    private fun weckerGeaendert() = org.fossify.clock.rosenweg.UhrAbgleich.lokalGeaendert(context)
 
     fun updateAlarm(alarm: Alarm): Boolean {
         val selectionArgs = arrayOf(alarm.id.toString())
         val values = fillAlarmContentValues(alarm)
         val selection = "$COL_ID = ?"
-        return mDb.update(ALARMS_TABLE_NAME, values, selection, selectionArgs) == 1
+        return (mDb.update(ALARMS_TABLE_NAME, values, selection, selectionArgs) == 1).also { weckerGeaendert() }
     }
 
     fun updateAlarmEnabledState(id: Int, isEnabled: Boolean): Boolean {
@@ -94,7 +97,7 @@ class DBHelper private constructor(
         val values = ContentValues()
         values.put(COL_IS_ENABLED, isEnabled)
         val selection = "$COL_ID = ?"
-        return mDb.update(ALARMS_TABLE_NAME, values, selection, selectionArgs) == 1
+        return (mDb.update(ALARMS_TABLE_NAME, values, selection, selectionArgs) == 1).also { weckerGeaendert() }
     }
 
     fun deleteAlarms(alarms: ArrayList<Alarm>) {
@@ -105,6 +108,7 @@ class DBHelper private constructor(
         val args = TextUtils.join(", ", alarms.map { it.id.toString() })
         val selection = "$ALARMS_TABLE_NAME.$COL_ID IN ($args)"
         mDb.delete(ALARMS_TABLE_NAME, selection, null)
+        weckerGeaendert()
     }
 
     fun getAlarmWithId(id: Int) = getAlarms().firstOrNull { it.id == id }

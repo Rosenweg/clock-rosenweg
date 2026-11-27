@@ -1,0 +1,111 @@
+// detekt: Netz, Binder und Speicher scheitern auf viele Arten - der Abgleich faengt alles ab und
+// versucht es spaeter wieder; Zahlen sind Masse/Zeiten der Oberflaeche und des Protokolls.
+@file:Suppress(
+    "TooGenericExceptionCaught", "SwallowedException", "MagicNumber", "LoopWithTooManyJumpStatements",
+    "CyclomaticComplexMethod", "TooManyFunctions", "ReturnCount",
+)
+
+package org.fossify.clock.rosenweg
+
+import android.content.Context
+import android.net.Uri
+import android.os.Bundle
+import android.util.Log
+import ch.rosenweg4303.cloud.KartenSitzung
+import ch.rosenweg4303.cloud.RosenwegAnmeldung
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.TimeUnit
+
+/**
+ * Weg zur Haupt-API (rosenweg4303.ch), je nach Geraet:
+ *
+ *  - Geteiltes Telefon (Rosenweg Geraet installiert): ueber dessen Content-Provider
+ *    (call "portal_anfrage"), im Namen der Person, die am Sperrbildschirm angemeldet ist. Die App
+ *    sieht nie ein Token; die Anlage gibt die Anfrage nur fuer freigegebene Pfade weiter
+ *    (pbx/api/app.py PORTAL_PFADE_STANDARD).
+ *  - Eigenes Handy: direkt, mit der Anmeldung dieser App (commons-rosenweg cloud: Rosenweg-Konto,
+ *    Karte oder QR-Code; RosenwegAnmeldung.zugangsToken deckt alle Wege ab).
+ *
+ * Blockiert (Netz): nicht im UI-Thread.
+ */
+object AbgleichWeg {
+    private const val TAG = "UhrAbgleichWeg"
+    private val ANLAGE = Uri.parse("content://ch.rosenweg4303.telefon.anlage")
+    private val JSON = "application/json; charset=utf-8".toMediaType()
+    private val http = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    sealed class Antwort {
+        /** [sitzung]: wechselt am geteilten Telefon mit jeder An-/Abmeldung (sonst null). */
+        data class Ok(val status: Int, val json: String, val sitzung: String?) : Antwort()
+        /** Niemand angemeldet (geteiltes Telefon) bzw. diese App nicht angemeldet (eigenes Handy). */
+        object NichtAngemeldet : Antwort()
+        data class Fehler(val text: String) : Antwort()
+    }
+
+    fun geteilt(c: Context) = RosenwegAnmeldung.geraetDa(c)
+
+    /**
+     * Geteiltes Telefon: ist jemand angemeldet? Ohne Netz (letzter Stand von Rosenweg Geraet; nach
+     * einem Neustart sofort false). null = unbekannt (Geraet noch nicht eingerichtet, Fehler).
+     */
+    fun geteiltAngemeldet(c: Context): Boolean? = try {
+        c.contentResolver.call(ANLAGE, "angemeldet", c.packageName, null)
+            ?.takeIf { it.containsKey("angemeldet") }?.getBoolean("angemeldet")
+    } catch (e: Exception) {
+        Log.i(TAG, "angemeldet: ${e.javaClass.simpleName}")
+        null
+    }
+
+    fun anfrage(c: Context, methode: String, pfad: String, koerper: String? = null): Antwort =
+        if (geteilt(c)) ueberGeraet(c, methode, pfad, koerper) else direkt(c, methode, pfad, koerper)
+
+    private fun ueberGeraet(c: Context, methode: String, pfad: String, koerper: String?): Antwort {
+        val b: Bundle = try {
+            c.contentResolver.call(ANLAGE, "portal_anfrage", pfad, Bundle().apply {
+                putString("methode", methode)
+                if (koerper != null) putString("koerper", koerper)
+            }) ?: return Antwort.Fehler("Rosenweg Gerät antwortet nicht")
+        } catch (e: Exception) {
+            // SecurityException: Rosenweg Geraet zu alt (kein portal_anfrage) oder andere Signatur
+            Log.w(TAG, "portal_anfrage: ${e.javaClass.simpleName}")
+            return Antwort.Fehler("Rosenweg Gerät erlaubt den Abgleich nicht")
+        }
+        if (b.getBoolean("nicht_angemeldet", false)) return Antwort.NichtAngemeldet
+        b.getString("fehler")?.let { return Antwort.Fehler(it) }
+        if (!b.containsKey("status")) return Antwort.Fehler("Rosenweg Gerät: unerwartete Antwort")
+        return Antwort.Ok(b.getInt("status"), b.getString("json").orEmpty(), b.getString("sitzung"))
+    }
+
+    private fun direkt(c: Context, methode: String, pfad: String, koerper: String?): Antwort {
+        repeat(2) { versuch ->
+            val token = try {
+                RosenwegAnmeldung.zugangsToken(c)
+            } catch (e: Exception) {
+                return Antwort.Fehler("Keine Verbindung zum Rosenweg")
+            } ?: return Antwort.NichtAngemeldet
+            val r = Request.Builder().url(KartenSitzung.API + pfad)
+                .header("Authorization", "Bearer $token").header("Accept", "application/json")
+                .method(methode, koerper?.toRequestBody(JSON))
+                .build()
+            try {
+                http.newCall(r).execute().use { a ->
+                    if (a.code == 401 && versuch == 0) {
+                        // Token im Speicher abgelaufen/widerrufen: einmal neu holen
+                        RosenwegAnmeldung.zugangUngueltig()
+                        return@repeat
+                    }
+                    return Antwort.Ok(a.code, a.body?.string().orEmpty(), null)
+                }
+            } catch (e: java.io.IOException) {
+                return Antwort.Fehler("Keine Verbindung zum Rosenweg")
+            }
+        }
+        return Antwort.Fehler("Anmeldung abgelaufen – bitte neu anmelden")
+    }
+}

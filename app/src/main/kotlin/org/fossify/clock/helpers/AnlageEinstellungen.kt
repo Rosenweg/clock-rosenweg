@@ -39,6 +39,9 @@ object AnlageEinstellungen {
         "internal_storage", "folder", "path", "uri", "app_id", "first_", "initial", "version",
         "sideload", "rate", "donat", "hint", "shown", "_count", "password", "pin", "token", "secret",
         // Uhr: "widget" gehoert hier zur Person (Farben des Uhr-Widgets)
+        // Weltuhren (selected_time_zones, edited_time_zone_titles) gleicht rosenweg/UhrAbgleich je
+        // Stadt ab - nicht auch noch hier als ganze Einstellung (sonst zwei Quellen)
+        "time_zone",
     )
 
     fun istGeraetebezogen(schluessel: String): Boolean {

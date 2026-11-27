@@ -17,13 +17,16 @@ import org.fossify.clock.extensions.config
 import org.fossify.clock.extensions.getAllTimeZonesModified
 import org.fossify.clock.extensions.getClosestEnabledAlarmString
 import org.fossify.clock.extensions.getFormattedDate
+import org.fossify.clock.helpers.EDITED_TIME_ZONE_TITLES
 import org.fossify.clock.helpers.FORMAT_12H_WITH_SECONDS
+import org.fossify.clock.helpers.SELECTED_TIME_ZONES
 import org.fossify.clock.helpers.FORMAT_24H_WITH_SECONDS
 import org.fossify.clock.helpers.getPassedSeconds
 import org.fossify.clock.models.MyTimeZone
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getProperBackgroundColor
 import org.fossify.commons.extensions.getProperTextColor
+import org.fossify.commons.extensions.getSharedPrefs
 import org.fossify.commons.extensions.updateTextColors
 import java.util.Calendar
 
@@ -51,11 +54,18 @@ class ClockFragment : Fragment() {
 
         val safeContext = context ?: return
         binding.clockDate.setTextColor(safeContext.getProperTextColor())
+        safeContext.getSharedPrefs().registerOnSharedPreferenceChangeListener(weltuhrenHoerer)
     }
 
     override fun onPause() {
         super.onPause()
         updateHandler.removeCallbacksAndMessages(null)
+        context?.getSharedPrefs()?.unregisterOnSharedPreferenceChangeListener(weltuhrenHoerer)
+    }
+
+    // Rosenweg: Weltuhren kommen auch vom Abgleich (anderes Geraet der Person) - gleich zeigen
+    private val weltuhrenHoerer = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, k ->
+        if (k == SELECTED_TIME_ZONES || k == EDITED_TIME_ZONE_TITLES) updateHandler.post { updateTimeZones() }
     }
 
     private fun setupDateTime() {
