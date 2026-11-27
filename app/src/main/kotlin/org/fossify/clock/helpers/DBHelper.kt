@@ -70,16 +70,21 @@ class DBHelper private constructor(
     private fun insertInitialAlarms(db: SQLiteDatabase) {
         val weekDays = MONDAY_BIT or TUESDAY_BIT or WEDNESDAY_BIT or THURSDAY_BIT or FRIDAY_BIT
         val weekDaysAlarm = context.createNewAlarm(420, weekDays)
-        insertAlarm(weekDaysAlarm, db)
+        insertAlarm(weekDaysAlarm, db, abWerk = true)
 
         val weekEnd = SATURDAY_BIT or SUNDAY_BIT
         val weekEndAlarm = context.createNewAlarm(540, weekEnd)
-        insertAlarm(weekEndAlarm, db)
+        insertAlarm(weekEndAlarm, db, abWerk = true)
     }
 
-    fun insertAlarm(alarm: Alarm, db: SQLiteDatabase = mDb): Int {
+    fun insertAlarm(alarm: Alarm, db: SQLiteDatabase = mDb, abWerk: Boolean = false): Int {
         val values = fillAlarmContentValues(alarm)
-        return db.insert(ALARMS_TABLE_NAME, null, values).toInt().also { weckerGeaendert() }
+        return db.insert(ALARMS_TABLE_NAME, null, values).toInt().also {
+            // Rosenweg: ohne Anmeldung gestellt (z.B. SET_ALARM aus einer anderen App) -> gehoert
+            // niemandem, geht nicht ins Konto (UhrAbgleich.neuerWecker)
+            if (!abWerk) org.fossify.clock.rosenweg.UhrAbgleich.neuerWecker(context, it)
+            weckerGeaendert()
+        }
     }
 
     // Rosenweg: Wecker gehoeren der Person und werden abgeglichen (rosenweg/UhrAbgleich.kt)

@@ -16,9 +16,12 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Rosenweg: ACCESS_NETWORK_STATE NICHT entfernen (Fossify tat es) - WorkManager braucht es fuer
+         den Abgleich mit dem Rosenweg (Netz als Bedingung); ausdruecklich ersetzen, damit keine
+         Bibliothek es wieder entfernt -->
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE"
-        tools:node="remove" />
+        tools:node="replace" />
 
     <uses-permission
         android:name="android.permission.USE_FINGERPRINT"

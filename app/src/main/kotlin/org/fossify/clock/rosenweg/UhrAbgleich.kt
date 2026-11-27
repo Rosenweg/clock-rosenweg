@@ -202,6 +202,9 @@ object UhrAbgleich {
                 g = Gespeichert(konto = konto)
                 a = holen(c, 0) ?: return letzterFehler
             }
+            if (g.stand.neu && geteilt) {
+                lokalGeaendert = mitUebernahme { ablage.herrenloseEntfernen() } || lokalGeaendert
+            }
             if (g.stand.neu) lokalGeaendert = mitUebernahme { ab.werkseitigeEntfernen(a) } || lokalGeaendert
             val (s, geaendert) = mitUebernahme { ab.uebernehmen(g.stand.copy(person = person ?: g.stand.person), a) }
             g = g.copy(stand = s, name = a.person?.name ?: g.name)
@@ -325,6 +328,23 @@ object UhrAbgleich {
     fun nurHier(c: Context): Set<Int> =
         c.applicationContext.getSharedPreferences(NUR_HIER, Context.MODE_PRIVATE)
             .getStringSet("wecker", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet()
+
+    /**
+     * Neuer Wecker (DBHelper.insertAlarm). Ohne Anmeldung gestellt - eigenes Handy vor der Anmeldung,
+     * geteiltes Telefon ohne angemeldete Person, z.B. ueber SET_ALARM einer anderen App: er gehoert
+     * niemandem und geht nicht ins Konto der Person, die sich danach anmeldet. Eigenes Handy: er
+     * bleibt als "Nur auf diesem Geraet" (im Wecker umschaltbar). Geteiltes Telefon: er wird bei der
+     * naechsten Anmeldung entfernt (UhrAblage.herrenloseEntfernen), klingelt vorher nicht (AlarmReceiver).
+     */
+    fun neuerWecker(c: Context, weckerId: Int) {
+        if (uebernimmt || weckerId <= 0) return
+        val niemand = if (AbgleichWeg.geteilt(c)) {
+            AbgleichWeg.geteiltAngemeldet(c) != true
+        } else {
+            !RosenwegAnmeldung.angemeldet(c)
+        }
+        if (niemand) nurHierSetzen(c, weckerId, true)
+    }
 
     fun nurHierSetzen(c: Context, weckerId: Int, nurHier: Boolean) {
         if (weckerId <= 0) return

@@ -307,6 +307,19 @@ class UhrAblage(private val c: Context) : Ablage {
         if (neu.toSet() != c.config.editedTimeZoneTitles) c.config.editedTimeZoneTitles = neu.toHashSet()
     }
 
+    /**
+     * Geteiltes Telefon, erster Abgleich nach der Anmeldung: Wecker, die gestellt wurden, als niemand
+     * angemeldet war (dort gibt es "Nur auf diesem Geraet" sonst nicht), gehoeren nicht der Person.
+     */
+    fun herrenloseEntfernen(): Boolean {
+        val nurHier = UhrAbgleich.nurHier(c)
+        val weg = c.dbHelper.getAlarms().filter { it.id in nurHier }
+        if (weg.isEmpty()) return false
+        c.dbHelper.deleteAlarms(ArrayList(weg))
+        weg.forEach { UhrAbgleich.nurHierSetzen(c, it.id, false) }
+        return true
+    }
+
     /** Geteiltes Telefon, Abmelden: alles der Person weg (Wecker ausgetragen, Timer beendet). */
     fun allesLoeschen() {
         val alarme = c.dbHelper.getAlarms()
