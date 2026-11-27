@@ -310,6 +310,32 @@ object UhrAbgleich {
         }
     }
 
+    // ─── "Nur auf diesem Geraet" ────────────────────────────────────────────
+
+    /*
+     * Stefan 27.11.2026: je Wecker die Option "Nur auf diesem Geraet" (Standard aus). Solche Wecker
+     * bleiben lokal und gehen nicht hoch; war einer schon beim Server, wird er dort beim Umschalten
+     * als Grabstein entfernt (UhrAblage.lokale laesst ihn aus). Eigene Datei: bleibt beim Abmelden.
+     * Auf geteilten Telefonen gibt es die Option nicht (dort ist alles an die Person gebunden).
+     */
+    private const val NUR_HIER = "rosenweg_uhr_nur_hier"
+
+    fun nurHierMoeglich(c: Context) = !AbgleichWeg.geteilt(c)
+
+    fun nurHier(c: Context): Set<Int> =
+        c.applicationContext.getSharedPreferences(NUR_HIER, Context.MODE_PRIVATE)
+            .getStringSet("wecker", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet()
+
+    fun nurHierSetzen(c: Context, weckerId: Int, nurHier: Boolean) {
+        if (weckerId <= 0) return
+        val p = c.applicationContext.getSharedPreferences(NUR_HIER, Context.MODE_PRIVATE)
+        val alt = p.getStringSet("wecker", emptySet()).orEmpty()
+        val neu = if (nurHier) alt + weckerId.toString() else alt - weckerId.toString()
+        if (neu == alt) return
+        p.edit().putStringSet("wecker", neu.toHashSet()).commit()
+        lokalGeaendert(c)
+    }
+
     // ─── Stand fuer die Einstellungen ───────────────────────────────────────
 
     private fun status(c: Context, e: Ergebnis) {

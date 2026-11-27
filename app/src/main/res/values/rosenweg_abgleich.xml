@@ -2,5 +2,6 @@
 <!-- Rosenweg: Anmeldung und Abgleich mit dem Rosenweg-Backend (rosenweg/UhrAbgleich.kt) -->
 <resources>
     <string name="rw_rosenweg">Rosenweg</string>
+    <string name="rw_nur_hier">Nur auf diesem Gerät</string>
     <string name="rw_konto">Rosenweg-Konto und Abgleich</string>
 </resources>

@@ -20,8 +20,10 @@ class AbgleicherTest {
         val welt = linkedMapOf<String, JsonObject>()
         var naechste = 1
         var werkseitig = false
+        /** "Nur auf diesem Geraet" wie in UhrAblage: solche Wecker sieht der Abgleich nicht */
+        val nurHier = mutableSetOf<String>()
         override val arten = listOf("wecker", "weltuhr")
-        override fun lokale() = wecker.map { (k, v) -> Lokal("wecker", k, v) } +
+        override fun lokale() = wecker.filterKeys { it !in nurHier }.map { (k, v) -> Lokal("wecker", k, v) } +
             welt.map { (k, v) -> Lokal("weltuhr", k, v, festeId = "z$k") }
 
         override fun anlegen(art: String, id: String, daten: JsonObject): String? = when (art) {
@@ -183,5 +185,37 @@ class AbgleicherTest {
         st = a.uebernehmen(st, an(2, Eintrag("wecker", "x", 700, geloescht = true, version = 2)), gesendet).first
         assertTrue(s.wecker.isEmpty())
         assertTrue(st.offene().isEmpty())
+    }
+
+    @Test
+    fun nurAufDiesemGeraetGehtNichtHochUndEntferntDieServerKopie() {
+        val s = Speicher()
+        val a = abgleicher(s)
+        // Neuer Wecker, gleich "nur hier": nie hochladen
+        s.wecker["1"] = w(300)
+        s.nurHier.add("1")
+        assertTrue(a.hochzuladen(a.erkennen(Stand())).isEmpty())
+
+        // Abgeglichener Wecker wird umgeschaltet: Grabstein fuer den Server, lokal bleibt er
+        s.wecker["2"] = w(420)
+        var st = a.erkennen(Stand())
+        st = a.uebernehmen(st, an(1, Eintrag("wecker", "id1", 1000, daten = w(420), version = 1)), st.merker).first
+        uhr = 2000
+        s.nurHier.add("2")
+        st = a.erkennen(st)
+        val hoch = a.hochzuladen(st).single()
+        assertTrue(hoch.geloescht)
+        assertEquals("id1", hoch.id)
+        // Der Grabstein kommt zurueck: der lokale Wecker bleibt
+        st = a.uebernehmen(st, an(2, hoch.copy(version = 2)), st.offene().associateBy { it.schluessel }).first
+        assertEquals(420, s.wecker["2"]!!["zeit"]!!.jsonPrimitive.int)
+        assertTrue(st.offene().isEmpty())
+
+        // Wieder abgleichen: geht als neuer Eintrag hoch
+        uhr = 3000
+        s.nurHier.remove("2")
+        val wieder = a.hochzuladen(a.erkennen(st)).single()
+        assertFalse(wieder.geloescht)
+        assertEquals(420, wieder.daten!!["zeit"]!!.jsonPrimitive.int)
     }
 }

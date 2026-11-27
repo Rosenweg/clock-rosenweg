@@ -56,7 +56,7 @@ Seit 1.7.0 meldet sich die Uhr an, weil sie Daten mit dem Rosenweg abgleicht.
 
 | Was | abgeglichen |
 |---|---|
-| Wecker | Zeit, Wochentage, Bezeichnung, Ton, Vibration, an/aus. Gibt es den Ton auf dem anderen Gerät nicht, nimmt die Uhr den gleichnamigen Ton des Geräts, sonst den Standard-Weckton. |
+| Wecker | Zeit, Wochentage, Bezeichnung, Ton, Vibration, an/aus. Ein Wecker mit „Nur auf diesem Gerät“ (Schalter im Wecker-Dialog, Standard aus, nur auf dem eigenen Handy) bleibt lokal. War er schon abgeglichen, verschwindet er beim Umschalten von den anderen Geräten. Gibt es den Ton auf dem anderen Gerät nicht, nimmt die Uhr den gleichnamigen Ton des Geräts, sonst den Standard-Weckton. |
 | Weltuhren | gewählte Städte und eigene Namen |
 | Timer | Dauer, Bezeichnung, Ton, Vibration. Ein laufender Timer läuft nur auf seinem Gerät. |
 | Stoppuhr, Einstellungen | nein. Die Einstellungen gehen auf geteilten Telefonen weiterhin über die Telefonanlage, siehe unten. |

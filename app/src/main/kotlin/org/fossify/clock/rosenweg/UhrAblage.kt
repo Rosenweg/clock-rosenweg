@@ -73,7 +73,11 @@ class UhrAblage(private val c: Context) : Ablage {
 
     override fun lokale(): List<Lokal> {
         val l = ArrayList<Lokal>()
-        c.dbHelper.getAlarms().forEach { l.add(Lokal(WECKER, it.id.toString(), weckerDaten(it))) }
+        // "Nur auf diesem Geraet" (Wecker-Dialog): nicht abgleichen. Stand ein solcher Wecker schon
+        // beim Server, sieht der Abgleicher ihn hier nicht mehr und schickt einen Grabstein.
+        val nurHier = UhrAbgleich.nurHier(c)
+        c.dbHelper.getAlarms().filter { it.id !in nurHier }
+            .forEach { l.add(Lokal(WECKER, it.id.toString(), weckerDaten(it))) }
         val titel = eigeneTitel()
         val zonen = getAllTimeZones().associateBy { it.id }
         for (s in c.config.selectedTimeZones) {
@@ -121,7 +125,8 @@ class UhrAblage(private val c: Context) : Ablage {
 
     override fun nurWerkseitig(art: String, lokale: List<Lokal>): Boolean = when (art) {
         WECKER -> {
-            val alarme = c.dbHelper.getAlarms()
+            val nurHier = UhrAbgleich.nurHier(c)
+            val alarme = c.dbHelper.getAlarms().filter { it.id !in nurHier }
             alarme.size <= 2 && alarme.all {
                 !it.isEnabled && !it.vibrate && it.label.isEmpty() &&
                     ((it.timeInMinutes == WERK_WECKER_WERKTAGS && it.days == WERKTAGE) ||
