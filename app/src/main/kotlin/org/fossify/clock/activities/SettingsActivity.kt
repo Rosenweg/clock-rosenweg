@@ -82,6 +82,7 @@ class SettingsActivity : SimpleActivity() {
 
         setupRosenwegKonto()
         setupCustomizeColors()
+        binding.settingsRwUpdatesHolder.setOnClickListener { ch.rosenweg4303.updater.RosenwegUpdater.jetztPruefen(this) }
         setupUseEnglish()
         setupLanguage()
         setupHourFormat()
