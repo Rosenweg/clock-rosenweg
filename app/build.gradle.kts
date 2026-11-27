@@ -142,10 +142,10 @@ detekt {
 
 dependencies {
     // Rosenweg Updater (ohne Geraet: alle Rosenweg-Apps aus dem Katalog der Anlage aktuell halten)
-    implementation("ch.rosenweg4303:updater:0.1.3")
+    implementation("ch.rosenweg4303:updater:0.1.4")
     // Rosenweg-Anmeldung (Anmeldeschirm: Karte, Rosenweg-Konto, QR) und Weg zur Haupt-API; die Uhr
     // gleicht Wecker, Weltuhren und Timer mit dem Rosenweg-Backend ab (rosenweg/UhrAbgleich.kt)
-    implementation("ch.rosenweg4303:cloud:0.13.0")
+    implementation("ch.rosenweg4303:cloud:0.13.4")
     implementation(libs.fossify.commons)
     implementation(libs.androidx.work.runtime.ktx)
 
